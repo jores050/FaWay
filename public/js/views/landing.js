@@ -10,11 +10,11 @@ export function render(mount) {
     el(
       "section",
       { class: "hero stack" },
-      el("h1", {}, "Trouve ta filière à l'UAC"),
+      el("h1", {}, "Ton orientation universitaire au Bénin"),
       el(
         "p",
         {},
-        "Dis-nous ta série de bac : on te montre les filières de l'Université d'Abomey-Calavi où tu es éligible, à partir du Guide d'Orientation officiel."
+        "Dis-nous ta série de bac : on te montre toutes les filières universitaires du Bénin où tu es éligible — UAC, UNA, Université de Parakou, UNSTIM — à partir du Guide d'Orientation officiel du Ministère."
       ),
       el(
         "div",
