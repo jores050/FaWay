@@ -1,0 +1,11 @@
+# Config Supabase CLI — déploiement de l'Edge Function.
+# Déploiement :
+#   supabase login
+#   supabase link --project-ref lrgitzhrrgwcbswjcbbc
+#   supabase secrets set GEMINI_API_KEY=ta_cle
+#   supabase functions deploy embed-match
+project_id = "lrgitzhrrgwcbswjcbbc"
+
+[functions.embed-match]
+# Appelée par le frontend public (clé anon) -> pas de JWT requis.
+verify_jwt = false

@@ -1,0 +1,14 @@
+{
+  "name": "iaorientation",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "App d'orientation des bacheliers du Bénin (filières UAC) — Vanilla JS + Supabase, mobile-first.",
+  "scripts": {
+    "test": "node test/serieParser.test.js && node test/filtrage.test.js && node test/matiereResolver.test.js && node test/aspiration.test.js",
+    "serve": "npx --yes serve public -l 5173"
+  },
+  "comment": "Aucune dépendance runtime : supabase-js est chargé via CDN ESM dans le navigateur. Les scripts ci-dessus n'utilisent que Node (déjà présent) et npx serve (statique).",
+  "dependencies": {},
+  "devDependencies": {}
+}

@@ -1,0 +1,18 @@
+# config.js est committé intentionnellement : seule l'anon key (publique) y figure.
+# public/js/config.js
+.env
+.env.local
+.env*.local
+
+# Supabase CLI temp (contient organization_id — ne pas exposer)
+supabase/.temp/
+
+# Dépendances / cache
+node_modules/
+.cache/
+
+# OS / éditeurs
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

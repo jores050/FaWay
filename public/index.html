@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>IAOrientation — Trouve ta filière (UAC)</title>
+    <meta
+      name="description"
+      content="Trouve les filières de l'Université d'Abomey-Calavi accessibles selon ta série de bac. Données du Guide d'Orientation officiel."
+    />
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/components.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="#/">
+        <span class="brand__mark" aria-hidden="true">🎓</span>
+        <span class="brand__text">
+          <strong>IAOrientation</strong>
+          <small>UAC · Bénin</small>
+        </span>
+      </a>
+    </header>
+
+    <main id="app" class="app" role="main"></main>
+
+    <footer class="site-footer">
+      <p>
+        Données issues du Guide d'Orientation officiel du Ministère de l'Enseignement Supérieur.
+        Outil d'aide au choix — la décision finale mérite un échange avec un conseiller d'orientation.
+      </p>
+    </footer>
+
+    <!-- Config locale (gitignorée) : définit window.APP_CONFIG. Doit être chargée AVANT le module. -->
+    <script src="js/config.js"></script>
+    <!-- Point d'entrée applicatif -->
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>
