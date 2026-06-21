@@ -146,3 +146,33 @@ export function stepper(etapeActive) {
 export function ouTiret(v) {
   return v === null || v === undefined || v === "" ? "—" : String(v);
 }
+
+// SVG paths Lucide (24×24, stroke="currentColor", fill="none", sw=2, round caps/joins).
+const ICO_PATHS = {
+  "graduation-cap": `<path d="M22 10v6"/><path d="M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>`,
+  target: `<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>`,
+  calculator: `<rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/><line x1="8" y1="18" x2="12" y2="18"/><line x1="14" y1="14" x2="16" y2="14"/><line x1="14" y1="18" x2="16" y2="18"/>`,
+  "file-text": `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/>`,
+  landmark: `<line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><polygon points="12 2 20 7 4 7"/>`,
+};
+
+/**
+ * Crée une icône SVG Lucide.
+ * @param {string} name  Clé dans ICO_PATHS (ex. "graduation-cap")
+ * @param {number} [size=20]
+ */
+export function ico(name, size = 20) {
+  const paths = ICO_PATHS[name] || "";
+  const node = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  node.setAttribute("viewBox", "0 0 24 24");
+  node.setAttribute("width", size);
+  node.setAttribute("height", size);
+  node.setAttribute("fill", "none");
+  node.setAttribute("stroke", "currentColor");
+  node.setAttribute("stroke-width", "2");
+  node.setAttribute("stroke-linecap", "round");
+  node.setAttribute("stroke-linejoin", "round");
+  node.setAttribute("aria-hidden", "true");
+  node.innerHTML = paths;
+  return node;
+}

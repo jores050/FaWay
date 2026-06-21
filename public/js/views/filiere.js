@@ -10,6 +10,7 @@ import { chargerFiliere } from "../data/queries.js";
 import { splitDebouches } from "../engine/filtrage.js";
 import {
   el,
+  ico,
   monter,
   chargement,
   boiteErreur,
@@ -51,7 +52,8 @@ export async function render(mount, params) {
         ? el(
             "p",
             { class: "muted" },
-            "🏛️ ",
+            ico("landmark"),
+            " ",
             universite.nom,
             universite.sigle ? ` (${universite.sigle})` : "",
             etablissement ? ` — ${etablissement.nom}` : ""

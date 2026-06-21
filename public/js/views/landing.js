@@ -2,7 +2,7 @@
 // views/landing.js — Écran d'accueil : pitch court + CTA "Trouve ta filière"
 // =============================================================================
 
-import { el, monter } from "../ui.js";
+import { el, ico, monter } from "../ui.js";
 
 export function render(mount) {
   monter(
@@ -28,7 +28,7 @@ export function render(mount) {
       el(
         "li",
         {},
-        el("span", { class: "ico" }, "🎯"),
+        ico("target"),
         el(
           "span",
           {},
@@ -39,7 +39,7 @@ export function render(mount) {
       el(
         "li",
         {},
-        el("span", { class: "ico" }, "🧮"),
+        ico("calculator"),
         el(
           "span",
           {},
@@ -50,7 +50,7 @@ export function render(mount) {
       el(
         "li",
         {},
-        el("span", { class: "ico" }, "📄"),
+        ico("file-text"),
         el(
           "span",
           {},
