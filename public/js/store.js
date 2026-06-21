@@ -16,7 +16,7 @@
 
 const CLE = "iao_wizard_v1";
 
-const ETAT_DEFAUT = { serie: null, notes: {}, aspiration: "" };
+const ETAT_DEFAUT = { serie: null, notes: {}, aspiration: "", domaines: [] };
 
 /** Lit l'état courant (fusionné avec les valeurs par défaut). */
 export function lireEtat() {
@@ -70,6 +70,11 @@ export function definirNote(matiereBrute, valeur) {
 /** Définit l'aspiration (texte libre). */
 export function definirAspiration(aspiration) {
   return patcherEtat({ aspiration: aspiration || "" });
+}
+
+/** Définit les domaines sélectionnés (tableau d'ids, max 3). */
+export function definirDomaines(ids) {
+  return patcherEtat({ domaines: Array.isArray(ids) ? ids.slice(0, 3) : [] });
 }
 
 /** Réinitialise complètement le parcours. */

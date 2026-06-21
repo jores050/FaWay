@@ -338,3 +338,120 @@
     align-items: baseline;
   }
 }
+
+/* --- Sélection de domaine (étape 3) ------------------------------------- */
+.domaine-counter {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  text-align: right;
+  margin: 0 0 0.3rem;
+}
+
+.domaine-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+
+.domaine-card {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.85rem 0.5rem;
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--ink);
+  line-height: 1.3;
+  user-select: none;
+  transition: border-color 0.12s, background 0.12s, color 0.12s;
+}
+
+.domaine-card:hover:not(.is-disabled) {
+  border-color: var(--primary);
+}
+
+.domaine-card.is-selected {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary-d);
+}
+
+.domaine-card.is-disabled {
+  opacity: 0.4;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* Aspiration repliable */
+.aspiration-details {
+  margin-top: 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.aspiration-details summary {
+  padding: 0.6rem 0.85rem;
+  cursor: pointer;
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+  user-select: none;
+  list-style: none;
+}
+
+.aspiration-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.aspiration-details[open] summary {
+  border-bottom: 1px solid var(--line);
+}
+
+.aspiration-details .field {
+  padding: 0.7rem 0.85rem 0.85rem;
+}
+
+/* Titres groupes résultats */
+.resultats-groupe-titre {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--primary-d);
+  margin: 0.8rem 0 0.4rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 2px solid var(--primary);
+  cursor: default;
+  list-style: none;
+}
+
+.resultats-groupe-titre--autre {
+  color: var(--ink-soft);
+  border-bottom-color: var(--line);
+  cursor: pointer;
+}
+
+.autres-filieres-details summary::-webkit-details-marker {
+  display: none;
+}
+
+@media (min-width: 480px) {
+  .domaine-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 760px) {
+  .domaine-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .domaine-card {
+    font-size: 0.82rem;
+  }
+}

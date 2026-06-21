@@ -167,6 +167,42 @@ export function viderCache() {
   _cache = null;
 }
 
+let _cacheDomaines = null;
+
+/**
+ * Charge (et met en cache) la liste des domaines métiers pour la sélection étape 3.
+ * Non bloquant : lève une ErreurDonnees si inaccessible.
+ * @returns {Promise<Array<{id: string, nom: string, icone: string}>>}
+ */
+export async function chargerDomaines() {
+  if (_cacheDomaines) return _cacheDomaines;
+  const rows = await lire("domaines", "id, nom, icone");
+  _cacheDomaines = rows.sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
+  return _cacheDomaines;
+}
+
+/**
+ * Appelle la RPC filieres_par_domaines pour savoir quelles filières correspondent
+ * aux domaines sélectionnés. Fallback silencieux : retourne [] en cas d'erreur.
+ * @param {string[]} eligibleIds   IDs des filières éligibles (Couche 1)
+ * @param {string[]} domaineIds    IDs des domaines sélectionnés
+ * @returns {Promise<Array<{filiere_id: string, correspond_domaine: boolean}>>}
+ */
+export async function appellerFiliereParDomaines(eligibleIds, domaineIds) {
+  if (!configValide || !supabase) return [];
+  if (!eligibleIds.length || !domaineIds.length) return [];
+  try {
+    const { data, error } = await supabase.rpc("filieres_par_domaines", {
+      eligible_ids: eligibleIds,
+      domaine_ids: domaineIds,
+    });
+    if (error) return [];
+    return data || [];
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Récupère une filière enrichie (établissement + université + critères) par id,
  * à partir des données déjà chargées.

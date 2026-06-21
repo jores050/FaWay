@@ -1,14 +1,16 @@
 // =============================================================================
 // views/resultats.js — Liste des filières éligibles, classées par score composite
 // -----------------------------------------------------------------------------
-// Ordre de traitement :
+// Pipeline de traitement :
 //   1. Couche 1 (déterministe) : filtrer() sur série + notes.
-//   2. Similarité sémantique via Edge Function (si aspiration saisie).
-//   3. Score composite sur chaque résultat (affinité + marge + IA + geo + financier).
-//   4. Tri unique par score composite décroissant.
+//   2. Groupage domaine (si sélection) : filieres_par_domaines() RPC.
+//   3. Similarité sémantique via embed-match (si aspiration saisie).
+//      → Appelée UNIQUEMENT sur les filières "dans tes domaines" si domaines sélectionnés.
+//      → Zéro appel Gemini si aspiration vide.
+//   4. Score composite + tri indépendant dans chaque groupe.
 // =============================================================================
 
-import { chargerDonnees } from "../data/queries.js";
+import { chargerDonnees, appellerFiliereParDomaines } from "../data/queries.js";
 import { classerParSemantique } from "../data/semantique.js";
 import { filtrer, splitDebouches } from "../engine/filtrage.js";
 import { calculerScoreComposite } from "../engine/scoring.js";
@@ -45,33 +47,61 @@ export async function render(mount) {
 
   // ── Couche 1 : éligibilité déterministe (série + notes) ──────────────────
   let { resultats, infoAspiration } = filtrer(donnees, etat);
+  const eligibleIds = resultats.map((r) => r.filiere.id);
 
-  // ── Couche 2 : similarité sémantique (si aspiration saisie) ──────────────
-  // L'embedding de l'aspiration est calculé une seule fois côté serveur.
-  // Fallback silencieux si Edge Function indisponible / timeout / aspiration vide.
-  const simMap = new Map();
-  let triSemantique = false;
-  if (etat.aspiration && etat.aspiration.trim()) {
-    const ranking = await classerParSemantique(
-      etat.aspiration,
-      resultats.map((r) => r.filiere.id)
-    );
-    if (ranking.length) {
-      for (const x of ranking) simMap.set(x.filiere_id, x.similarite);
-      triSemantique = true;
+  // ── Couche 2 : groupage par domaine ──────────────────────────────────────
+  const domaineIds = Array.isArray(etat.domaines) ? etat.domaines : [];
+  let correspondanceMap = null; // Map<filiere_id, boolean> ou null si pas de groupage
+  if (domaineIds.length > 0) {
+    const rows = await appellerFiliereParDomaines(eligibleIds, domaineIds);
+    if (rows.length > 0) {
+      correspondanceMap = new Map(rows.map((r) => [r.filiere_id, r.correspond_domaine]));
+      for (const r of resultats) {
+        r.correspondDomaine = correspondanceMap.get(r.filiere.id) ?? false;
+      }
     }
   }
 
-  // ── Couche 3 : score composite + tri unique ───────────────────────────────
+  // ── Couche 3 : similarité sémantique (si aspiration saisie) ──────────────
+  const aspTrim = (etat.aspiration || "").trim();
+  const simMap = new Map();
+  let triSemantique = false;
+  if (aspTrim) {
+    // Si domaines sélectionnés : reranking seulement sur les filières correspondantes
+    const idsASemantiser = correspondanceMap
+      ? resultats.filter((r) => r.correspondDomaine).map((r) => r.filiere.id)
+      : eligibleIds;
+    if (idsASemantiser.length > 0) {
+      const ranking = await classerParSemantique(aspTrim, idsASemantiser);
+      if (ranking.length) {
+        for (const x of ranking) simMap.set(x.filiere_id, x.similarite);
+        triSemantique = true;
+      }
+    }
+  }
+
+  // ── Couche 4 : score composite ────────────────────────────────────────────
   const poids = donnees.poids;
   for (const r of resultats) {
     const sim = simMap.get(r.filiere.id) ?? null;
-    const { score, detail } = calculerScoreComposite(r, sim, poids);
+    const { score } = calculerScoreComposite(r, sim, poids);
     r.scoreComposite = score;
-    r.scoreDetail = detail;
     r.similariteSemantique = sim;
   }
-  resultats.sort((a, b) => b.scoreComposite - a.scoreComposite);
+
+  // ── Séparation en groupes + tri ───────────────────────────────────────────
+  let dansLesDomaines = null;
+  let autresFilières = resultats;
+  if (correspondanceMap) {
+    dansLesDomaines = resultats
+      .filter((r) => r.correspondDomaine)
+      .sort((a, b) => b.scoreComposite - a.scoreComposite);
+    autresFilières = resultats
+      .filter((r) => !r.correspondDomaine)
+      .sort((a, b) => b.scoreComposite - a.scoreComposite);
+  } else {
+    autresFilières = [...resultats].sort((a, b) => b.scoreComposite - a.scoreComposite);
+  }
 
   // ── Rendu ─────────────────────────────────────────────────────────────────
   const aUneEstimation = resultats.some((r) => r.moyenne.statut === "estimee");
@@ -82,11 +112,7 @@ export async function render(mount) {
     el(
       "div",
       { class: "actions actions--between" },
-      el(
-        "h1",
-        { style: "margin:0" },
-        `${resultats.length} filière${resultats.length > 1 ? "s" : ""}`
-      ),
+      el("h1", { style: "margin:0" }, `${resultats.length} filière${resultats.length > 1 ? "s" : ""}`),
       el("a", { class: "btn btn--ghost", href: "#/etape1" }, "Modifier")
     ),
     el(
@@ -103,7 +129,7 @@ export async function render(mount) {
     notices.push(
       encartInfo(
         "Aspiration « ",
-        el("strong", {}, etat.aspiration.trim()),
+        el("strong", {}, aspTrim),
         " » prise en compte dans le score. L'éligibilité (série, notes) reste prioritaire."
       )
     );
@@ -118,14 +144,52 @@ export async function render(mount) {
   }
   if (aUneEstimation) notices.push(disclaimerEstimation());
 
-  const liste =
-    resultats.length === 0
-      ? encartInfo(
-          "Aucune filière trouvée pour la série « ",
-          el("strong", {}, etat.serie),
-          " ». Reviens en arrière pour changer de série."
+  // Construction de la liste (groupée ou plate)
+  let liste;
+  if (resultats.length === 0) {
+    liste = encartInfo(
+      "Aucune filière trouvée pour la série « ",
+      el("strong", {}, etat.serie),
+      " ». Reviens en arrière pour changer de série."
+    );
+  } else if (dansLesDomaines !== null) {
+    // Affichage groupé
+    if (dansLesDomaines.length === 0) {
+      // Aucune correspondance dans les domaines → affichage flat avec notice
+      notices.push(
+        encartInfo(
+          "Aucune filière associée aux domaines sélectionnés dans la base — toutes les filières éligibles sont affichées."
         )
-      : el("div", {}, resultats.map((r) => carteFiliere(r)));
+      );
+      liste = el("div", {}, autresFilières.map((r) => carteFiliere(r)));
+    } else {
+      const sectionDomaines = el(
+        "div",
+        { class: "stack" },
+        el("p", { class: "resultats-groupe-titre" }, `Filières dans tes domaines (${dansLesDomaines.length})`),
+        ...dansLesDomaines.map((r) => carteFiliere(r))
+      );
+
+      const sectionAutres =
+        autresFilières.length > 0
+          ? el(
+              "details",
+              { class: "autres-filieres-details" },
+              el(
+                "summary",
+                { class: "resultats-groupe-titre resultats-groupe-titre--autre" },
+                `Autres filières accessibles (${autresFilières.length})`
+              ),
+              ...autresFilières.map((r) => carteFiliere(r))
+            )
+          : null;
+
+      liste = el("div", {}, sectionDomaines, sectionAutres);
+    }
+  } else {
+    // Affichage plat (aucun domaine sélectionné — comportement identique à l'ancien flow)
+    liste = el("div", {}, autresFilières.map((r) => carteFiliere(r)));
+  }
 
   monter(mount, el("section", { class: "stack" }, entete, ...notices, liste));
 }
@@ -142,7 +206,6 @@ function carteFiliere(r) {
     "a",
     { class: "card result", href: `#/filiere/${encodeURIComponent(f.id)}` },
 
-    // Barre de score composite (en haut de la carte)
     el(
       "div",
       { class: "score-bar-wrap", title: `Score composite : ${pct}%` },
@@ -161,32 +224,19 @@ function carteFiliere(r) {
     ),
 
     etab
-      ? el(
-          "p",
-          { class: "result__etab" },
-          etab.nom,
-          etab.ville ? ` · ${etab.ville}` : ""
-        )
+      ? el("p", { class: "result__etab" }, etab.nom, etab.ville ? ` · ${etab.ville}` : "")
       : null,
 
-    // Mode d'entrée
     el("div", { class: "result__meta" }, badge(modeEntree, modeEntreeVariante(f.mode_entree))),
 
-    // Badge "ouverte à toutes séries"
     r.eligibiliteType === "toutesSeries"
       ? el("div", { class: "result__meta" }, badge("Ouverte à toutes séries", "badge--accent"))
       : null,
 
-    // Affinité aspiration (sémantique ou lexique)
     r.similariteSemantique != null || r.scoreAspiration > 0
-      ? el(
-          "div",
-          { class: "result__meta" },
-          badge("✓ correspond à ton aspiration", "badge--accent")
-        )
+      ? el("div", { class: "result__meta" }, badge("✓ correspond à ton aspiration", "badge--accent"))
       : null,
 
-    // Badge risque IA (display-only)
     r.risqueIAmin != null
       ? el(
           "div",
@@ -199,7 +249,6 @@ function carteFiliere(r) {
         )
       : null,
 
-    // Quotas
     el(
       "p",
       { class: "result__meta", style: "display:block;margin-top:.5rem" },
@@ -222,7 +271,6 @@ function carteFiliere(r) {
   );
 }
 
-/** Rendu du bloc moyenne selon le statut de l'estimation. */
 function blocMoyenne(moyenne) {
   switch (moyenne.statut) {
     case "estimee":
