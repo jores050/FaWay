@@ -13,4 +13,8 @@
 window.APP_CONFIG = {
   SUPABASE_URL: "https://VOTRE-PROJET.supabase.co",
   SUPABASE_ANON_KEY: "VOTRE_CLE_ANON_PUBLIQUE",
+  // Clé Gemini (free-tier, sans carte bancaire).
+  // Obtenir sur https://aistudio.google.com/apikey
+  // Laisser vide ("") pour désactiver les justifications IA.
+  GEMINI_API_KEY: "",
 };

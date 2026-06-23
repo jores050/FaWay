@@ -8,6 +8,7 @@
 
 import { chargerFiliere } from "../data/queries.js";
 import { splitDebouches } from "../engine/filtrage.js";
+import { extraireSimgle, deduireVille, deduireNiveau, deduireDuree } from "../lib/etabMeta.js";
 import {
   el,
   ico,
@@ -38,6 +39,12 @@ export async function render(mount, params) {
   const { filiere: f, etablissement, universite, criteres, metiers } = data;
   const debouches = splitDebouches(f.debouches);
 
+  // Valeurs déduites (null si non déductible → ligne masquée par kv()).
+  const siggleEtab = etablissement?.sigle ?? extraireSimgle(etablissement?.nom ?? "");
+  const villeEtab  = etablissement?.ville ?? deduireVille(etablissement?.nom, siggleEtab);
+  const niveauEff  = f.niveau ?? deduireNiveau(etablissement?.nom, siggleEtab, f.intitule);
+  const dureeEff   = f.duree_annees != null ? String(f.duree_annees) : deduireDuree(niveauEff);
+
   monter(
     mount,
     el("a", { class: "btn btn--ghost", href: "#/resultats" }, "← Résultats"),
@@ -60,14 +67,14 @@ export async function render(mount, params) {
           )
         : null,
 
-      // Toutes les colonnes de la filière.
+      // Informations filière — null = ligne masquée (pas de "—" jamais).
       kv([
-        ["Niveau", ouTiret(f.niveau)],
-        ["Durée (années)", ouTiret(f.duree_annees)],
-        ["Diplôme délivré", ouTiret(f.diplome_delivre)],
-        ["Mode d'entrée", f.mode_entree || "Non précisé"],
-        ["Description", ouTiret(f.description)],
-        ["Page source (guide)", ouTiret(f.source_page)],
+        ["Niveau", niveauEff],
+        ["Durée", dureeEff],
+        ["Diplôme délivré", f.diplome_delivre],
+        ["Mode d'entrée", f.mode_entree],
+        ["Description", f.description],
+        ["Page source (guide)", f.source_page != null ? String(f.source_page) : null],
       ]),
 
       // Quotas — données de référence, jamais une garantie.
@@ -77,9 +84,9 @@ export async function render(mount, params) {
         "seuil réel dépend du classement national de l'année."
       ),
       kv([
-        ["Places boursières", ouTiret(f.quota_boursiers)],
-        ["Places payantes", ouTiret(f.quota_payant)],
-        ["Places entièrement payantes", ouTiret(f.quota_entierement_payant)],
+        ["Places boursières", f.quota_boursiers != null ? String(f.quota_boursiers) : null],
+        ["Places payantes", f.quota_payant != null ? String(f.quota_payant) : null],
+        ["Places entièrement payantes", f.quota_entierement_payant != null ? String(f.quota_entierement_payant) : null],
       ]),
 
       // Établissement.
@@ -89,10 +96,9 @@ export async function render(mount, params) {
             {},
             el("h2", {}, "Établissement"),
             kv([
-              ["Nom", ouTiret(etablissement.nom)],
-              ["Sigle", ouTiret(etablissement.sigle)],
-              ["Type", ouTiret(etablissement.type)],
-              ["Ville", ouTiret(etablissement.ville)],
+              ["Nom", etablissement.nom],
+              ["Sigle", siggleEtab],
+              ["Ville", villeEtab],
             ])
           )
         : null,
@@ -168,12 +174,14 @@ function blocDebouches(metiers, debouchesTexte) {
   );
 }
 
-/** Construit une liste clé/valeur. */
+/** Construit une liste clé/valeur. Les paires avec valeur null/undefined sont masquées. */
 function kv(paires) {
+  const visibles = paires.filter(([, v]) => v != null && v !== "");
+  if (!visibles.length) return null;
   return el(
     "div",
     { class: "kv" },
-    paires.map(([k, v]) =>
+    visibles.map(([k, v]) =>
       el(
         "div",
         { class: "kv__row" },

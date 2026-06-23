@@ -24,6 +24,7 @@ if (!configValide) {
       etape3: (m, p) => charger("./views/etape3_aspiration.js", m, p),
       resultats: (m, p) => charger("./views/resultats.js", m, p),
       filiere: (m, p) => charger("./views/filiere.js", m, p),
+      methodologie: (m, p) => charger("./views/methodologie.js", m, p),
     },
     onErreur: (m, e) =>
       monter(m, boiteErreur(e && e.message, e && e.cause && e.cause.message)),

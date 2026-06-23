@@ -50,13 +50,14 @@ export function lienBouton(libelle, hash, classe = "btn") {
   return el("a", { class: classe, href: hash }, libelle);
 }
 
-/** Disclaimer OBLIGATOIRE pour toute moyenne estimée (coefficients inconnus). */
+/** Note sur la moyenne de classement officielle. */
 export function disclaimerEstimation() {
   return el(
     "p",
     { class: "disclaimer" },
-    "Estimation non pondérée — le Ministère ne publie pas les coefficients réels. ",
-    "Renseigne-toi sur la plateforme officielle d'inscription pour les coefficients exacts."
+    "Les moyennes affichées utilisent la formule officielle du Ministère (arrêté N°016-2003) : ",
+    "M = Σ(note × coef) / Σ(coef). Elles indiquent ton niveau sur les matières de sélection. ",
+    "L'admission dépend du seuil de l'année — vérifie toujours sur la plateforme officielle d'inscription."
   );
 }
 

@@ -1,15 +1,14 @@
 // =============================================================================
-// engine/filtrage.js — Moteur d'éligibilité + estimation (JS pur, AUCUNE IA)
+// engine/filtrage.js — Moteur d'éligibilité + moyenne de classement officielle
 // -----------------------------------------------------------------------------
-// Étapes (cf. spec) :
+// Étapes :
 //   1. L'utilisateur choisit une série (ex. "D").
 //   2. On parcourt criteres_classement et on garde les filières où la série
 //      apparaît comme TOKEN ISOLÉ (via serieParser.matchSerie), + les filières
 //      "Toutes séries confondues" / sans aucun critère (ouvertes à tous).
-//   3. Si des notes sont saisies : moyenne SIMPLE NON PONDÉRÉE des matières de la
-//      filière, uniquement si l'utilisateur a saisi une note pour CHAQUE matière
-//      (sinon "données insuffisantes" — on n'invente rien). Coefficients = NULL
-//      partout en base : aucune moyenne pondérée "officielle" n'est possible.
+//   3. Si des notes sont saisies : moyenne de classement OFFICIELLE pondérée
+//      M = Σ(note × coef) / Σ(coef) avec les coefficients de l'arrêté N°016-2003.
+//      Source : guide d'orientation officiel du Ministère, page 8.
 //   4. Aspiration : simple filtrage MOTS-CLÉS sur intitule + debouches.
 //      ⚠️ Placeholder — PAS le moteur sémantique (embeddings) prévu à terme.
 //   5. Tri par quota_boursiers décroissant (proxy d'accessibilité), NULL en dernier.
@@ -18,6 +17,7 @@
 import { matchSerie, parse } from "../lib/serieParser.js";
 import { resoudreMatiere } from "../lib/matiereResolver.js";
 import { analyserAspiration, scoreAspiration } from "../lib/aspiration.js";
+import { trouverCoefficient } from "../lib/coefficients.js";
 
 /** Clé/forme canonique d'une matière : on se contente de trim (jamais de
  *  réinterprétation du texte conditionnel, qui reste affiché brut). */
@@ -69,30 +69,72 @@ export function matieresPourSerie(donnees, serie) {
   return Array.from(vues.values());
 }
 
-/** Calcule l'état de l'estimation de moyenne pour une filière. */
-function estimerMoyenne(matieres, notes) {
+/**
+ * Calcule la moyenne de classement officielle pondérée pour une filière.
+ * Formule : M = Σ(note × coef) / Σ(coef)  (arrêté N°016-2003, guide Ministère p.8)
+ *
+ * Statuts retournés :
+ *   "estimee"     — calcul réussi, valeur et detail disponibles
+ *   "nonSaisi"    — l'élève n'a saisi aucune note
+ *   "incomplete"  — au moins une note manquante parmi les matières requises
+ *   "coefInconnu" — notes OK mais coefficient absent de la table ET non saisi → neutralisé
+ *   "sansMatiere" — filière sans matière de sélection précisée
+ *
+ * @param {string[]} matieres  Matières résolues pour la filière
+ * @param {object}  notes      { [matiere]: number } — notes saisies
+ * @param {object}  coefs      { [matiere]: number } — coefficients manuels (store); peut être {}
+ * @param {string}  serie      Série bac de l'élève
+ */
+function calculerMoyenneClassement(matieres, notes, coefs, serie) {
   if (matieres.length === 0) {
-    // Filière sans matière de sélection précisée (ex. "Toutes séries confondues").
-    return { statut: "sansMatiere", valeur: null, utilisees: [], manquantes: [] };
+    return { statut: "sansMatiere", valeur: null, utilisees: [], manquantes: [], detail: [], sommeCoefs: 0, serie };
   }
   const aDesNotes = notes && Object.keys(notes).length > 0;
   if (!aDesNotes) {
-    return { statut: "nonSaisi", valeur: null, utilisees: [], manquantes: [] };
+    return { statut: "nonSaisi", valeur: null, utilisees: [], manquantes: [], detail: [], sommeCoefs: 0, serie };
   }
-  // Exige une note pour CHAQUE matière listée — sinon on n'estime pas.
+
+  // Vérifier qu'une note est saisie pour CHAQUE matière
   const manquantes = matieres.filter(
     (m) => !(m in notes) || notes[m] === null || notes[m] === undefined
   );
   if (manquantes.length > 0) {
-    return { statut: "incomplete", valeur: null, utilisees: [], manquantes };
+    return { statut: "incomplete", valeur: null, utilisees: [], manquantes, detail: [], sommeCoefs: 0, serie };
   }
-  const valeurs = matieres.map((m) => Number(notes[m]));
-  const moyenne = valeurs.reduce((s, v) => s + v, 0) / valeurs.length;
+
+  // Résoudre le coefficient : priorité au coef saisi par l'élève, sinon table officielle.
+  const detail = [];
+  for (const m of matieres) {
+    const coefUser = coefs && coefs[m] != null ? Number(coefs[m]) : NaN;
+    const coefSaisi = Number.isFinite(coefUser) && coefUser > 0 ? coefUser : null;
+    const resTable = coefSaisi == null ? trouverCoefficient(m, serie) : null;
+    const coefVal = coefSaisi ?? resTable?.coef ?? null;
+
+    if (coefVal == null) {
+      console.warn(`[coefficients] matière "${m}" sans coefficient pour "${serie}" — calcul neutralisé`);
+      return { statut: "coefInconnu", valeur: null, utilisees: matieres, manquantes: [], detail: [], sommeCoefs: 0, coefManquant: m, serie };
+    }
+    detail.push({
+      matiere: m,
+      note: Number(notes[m]),
+      coef: coefVal,
+      canonique: resTable?.canonique ?? m,
+      coefSource: coefSaisi != null ? "utilisateur" : "table",
+    });
+  }
+
+  const sommeCoefs = detail.reduce((s, d) => s + d.coef, 0);
+  const somme = detail.reduce((s, d) => s + d.note * d.coef, 0);
+  const valeur = Math.round((somme / sommeCoefs) * 100) / 100;
+
   return {
     statut: "estimee",
-    valeur: Math.round(moyenne * 100) / 100,
+    valeur,
     utilisees: matieres,
     manquantes: [],
+    detail,
+    sommeCoefs,
+    serie,
   };
 }
 
@@ -146,7 +188,7 @@ export function filtrer(donnees, etat) {
     if (estConcours(f)) {
       moyenne = { statut: "concours", epreuves: matieres, valeur: null, utilisees: [], manquantes: [] };
     } else if (estClassement(f)) {
-      moyenne = estimerMoyenne(matieres, etat.notes);
+      moyenne = calculerMoyenneClassement(matieres, etat.notes, etat.coefs || {}, serie);
     } else {
       // mode_entree NULL : ni classement ni concours -> pas de moyenne.
       moyenne =

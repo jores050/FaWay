@@ -1,5 +1,5 @@
 // =============================================================================
-// views/landing.js — Écran d'accueil : pitch court + CTA "Trouve ta filière"
+// views/landing.js — Accueil : hero trajectoire + features
 // =============================================================================
 
 import { el, ico, monter } from "../ui.js";
@@ -9,17 +9,32 @@ export function render(mount) {
     mount,
     el(
       "section",
-      { class: "hero stack" },
-      el("h1", {}, "Ton orientation universitaire au Bénin"),
+      { class: "hero" },
+      el("div", { class: "hero__eyebrow" }, "Guide officiel du Ministère · Gratuit"),
+      el(
+        "h1",
+        {},
+        "Trouve ta filière ",
+        el("em", {}, "idéale"),
+        " au Bénin"
+      ),
       el(
         "p",
-        {},
-        "Dis-nous ta série de bac : on te montre toutes les filières universitaires du Bénin où tu es éligible — UAC, UNA, Université de Parakou, UNSTIM — à partir du Guide d'Orientation officiel du Ministère."
+        { class: "hero__sub" },
+        "Saisis ta série de bac et tes notes. On te montre toutes les filières universitaires où tu es éligible — avec ta moyenne de classement officielle et tes chances d'admission estimées."
       ),
       el(
         "div",
-        { class: "actions text-center", style: "justify-content:center;margin-top:1rem" },
-        el("a", { class: "btn btn--primary", href: "#/etape1" }, "Trouve ta filière")
+        { class: "hero__cta actions", style: "justify-content:center" },
+        el("a", { class: "btn btn--amber", href: "#/etape1", style: "font-size:1rem;padding:.75rem 1.75rem" }, "Trouver ma filière →")
+      ),
+      el(
+        "div",
+        { class: "hero__coverage" },
+        el("span", { class: "hero__univ-badge" }, "UAC"),
+        el("span", { class: "hero__univ-badge" }, "UNA"),
+        el("span", { class: "hero__univ-badge" }, "Université de Parakou"),
+        el("span", { class: "hero__univ-badge" }, "UNSTIM"),
       )
     ),
     el(
@@ -28,34 +43,45 @@ export function render(mount) {
       el(
         "li",
         {},
-        ico("target"),
+        el("div", { class: "feature-list__icon" }, ico("target", 18)),
         el(
           "span",
           {},
           el("strong", {}, "Éligibilité fiable. "),
-          "On lit ta série dans les vrais critères de classement, sans approximation."
+          "On lit ta série dans les vrais critères de classement officiels — aucune approximation, aucun faux positif."
         )
       ),
       el(
         "li",
         {},
-        ico("calculator"),
+        el("div", { class: "feature-list__icon" }, ico("calculator", 18)),
         el(
           "span",
           {},
-          el("strong", {}, "Estimation honnête. "),
-          "Tes notes donnent une moyenne non pondérée — jamais une fausse « moyenne officielle »."
+          el("strong", {}, "Calcul officiel. "),
+          "Tes notes donnent ta vraie moyenne pondérée (formule du Ministère, arrêté N°016-2003). Coefficients par série intégrés."
         )
       ),
       el(
         "li",
         {},
-        ico("file-text"),
+        el("div", { class: "feature-list__icon" }, ico("trending-up", 18)),
         el(
           "span",
           {},
-          el("strong", {}, "Sources affichées. "),
-          "Quotas et page du guide sont indiqués pour chaque filière."
+          el("strong", {}, "Chances estimées. "),
+          "Un indicateur visuel te montre où tu te situes par rapport au seuil habituel de chaque filière — pour orienter ta stratégie."
+        )
+      ),
+      el(
+        "li",
+        {},
+        el("div", { class: "feature-list__icon" }, ico("file-text", 18)),
+        el(
+          "span",
+          {},
+          el("strong", {}, "Sources transparentes. "),
+          "Quotas et page du guide sont indiqués pour chaque filière. Tu pois vérifier toi-même."
         )
       )
     )

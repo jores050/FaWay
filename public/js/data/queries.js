@@ -57,14 +57,21 @@ function grouperPar(rows, cle) {
 
 let _cache = null;
 
-// Pondérations par défaut (miroir exact de config_scoring en base).
+// Pondérations par défaut (miroir exact de config_scoring en base — v2 "réaliste terrain").
 // Ne jamais les modifier ici — la source de vérité est la table Supabase.
+// Clé "avenir_metier" correspond à "poids_avenir_metier" dans config_scoring
+// (ex "poids_resistance_ia" v1 — même calcul, label renommé).
 const POIDS_DEFAUT = {
-  affinite_reve: 0.40,
-  marge_academique: 0.25,
-  resistance_ia: 0.20,
-  accessibilite_geo: 0.10,
-  accessibilite_financiere: 0.05,
+  marge_academique:         0.44,
+  affinite_reve:            0.56,
+  accessibilite_financiere: 0.0,
+  avenir_metier:            0.0,   // sorti du score — affiché comme info via badge IA
+  accessibilite_geo:        0.0,
+};
+
+// Seuils de décision — miroir de config_scoring. Modifiables en base sans toucher au code.
+const SEUIL_DEFAUT = {
+  suffisance_academique: 13, // moyenne >= ce seuil → score académique = 1.0 (filière gérée)
 };
 
 /**
@@ -94,35 +101,74 @@ export async function chargerDonnees() {
     lire("universites", "id, nom, sigle, ville"),
   ]);
 
-  // Pondérations depuis config_scoring. NON BLOQUANT : si la table est vide
-  // ou inaccessible, on utilise POIDS_DEFAUT (définis plus haut).
-  const poids = { ...POIDS_DEFAUT };
+  // Pondérations et seuils depuis config_scoring. NON BLOQUANT.
+  const poids  = { ...POIDS_DEFAUT };
+  const seuils = { ...SEUIL_DEFAUT };
   try {
     const lignes = await lire("config_scoring", "cle, valeur");
     for (const row of lignes) {
-      const cle = String(row.cle).replace("poids_", "");
       const v = parseFloat(row.valeur);
-      if (!isNaN(v) && Object.prototype.hasOwnProperty.call(poids, cle)) poids[cle] = v;
+      if (isNaN(v)) continue;
+      // Pondérations (préfixe "poids_")
+      const poidsKey = String(row.cle).replace("poids_", "");
+      if (Object.prototype.hasOwnProperty.call(poids, poidsKey)) poids[poidsKey] = v;
+      // Seuils
+      if (row.cle === "seuil_suffisance_academique") seuils.suffisance_academique = v;
+    }
+  } catch {}
+
+  // Colonnes optionnelles ajoutées par migrations (Correctifs 2 & 3).
+  // NON BLOQUANT : si les migrations add_niveau_demande.sql / add_prepa_flags.sql
+  // n'ont pas encore été appliquées, les colonnes n'existent pas → le code
+  // dégrade vers le fallback regex/intitulé (comportement identique à v1).
+  try {
+    const { data: ext } = await supabase
+      .from("filieres")
+      .select("id, niveau_demande, est_prepa_ingenieur, regle_concours_speciale");
+    if (ext) {
+      const extMap = new Map(ext.map((r) => [r.id, r]));
+      for (const f of filieres) {
+        const e = extMap.get(f.id);
+        if (e) Object.assign(f, e);
+      }
     }
   } catch {}
 
   // Métiers structurés + risque IA (V2). NON BLOQUANT : si ces tables sont
   // indisponibles (RLS, etc.), on dégrade proprement vers `debouches` texte plutôt
   // que de casser tout l'écran. Certains métiers ("Autre") n'ont PAS de risque.
-  let metiers = [],
-    risques = [],
-    liaisons = [];
+  //
+  // Chaque requête a son propre try/catch indépendant + ORDER BY stable :
+  //   • Sans ORDER BY, Postgres peut retourner les lignes dans un ordre différent
+  //     d'une requête à l'autre → risqueIAmoyen non déterministe entre sessions.
+  //   • Sans LIMIT explicite, PostgREST tronque silencieusement à 1000 lignes
+  //     dans un ordre non garanti → certains métiers peuvent disparaître.
+  //   • Les try/catch sont séparés : une table indisponible ne vide plus les 3.
+  let metiers = [];
+  let risques = [];
+  let liaisons = [];
   try {
-    [metiers, risques, liaisons] = await Promise.all([
-      lire("metiers", "id, nom, secteur"),
-      lire("metiers_risque_ia", "metier_id, score_risque, horizon_annees, justification, source_reference"),
-      lire("filieres_metiers", "filiere_id, metier_id"),
-    ]);
-  } catch (e) {
-    metiers = [];
-    risques = [];
-    liaisons = [];
-  }
+    const { data, error } = await supabase
+      .from("metiers")
+      .select("id, nom, secteur")
+      .order("id");
+    if (!error && data) metiers = data;
+  } catch {}
+  try {
+    const { data, error } = await supabase
+      .from("metiers_risque_ia")
+      .select("metier_id, score_risque, horizon_annees, justification, source_reference")
+      .order("metier_id");
+    if (!error && data) risques = data;
+  } catch {}
+  try {
+    const { data, error } = await supabase
+      .from("filieres_metiers")
+      .select("filiere_id, metier_id")
+      .order("filiere_id")
+      .order("metier_id");
+    if (!error && data) liaisons = data;
+  } catch {}
 
   const metierParId = indexerParId(metiers);
   const risqueParMetier = new Map(risques.map((r) => [r.metier_id, r]));
@@ -158,6 +204,7 @@ export async function chargerDonnees() {
     criteresParFiliere: grouperPar(criteres, "filiere_id"),
     metiersParFiliere,
     poids,
+    seuils,
   };
   return _cache;
 }
