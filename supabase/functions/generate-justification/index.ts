@@ -44,11 +44,9 @@ const RATE_LIMIT_RPM = 15;
 const RATE_WINDOW_S  = 60;
 const RL_PREFIX      = "rl:gj:"; // préfixe unique par fonction
 
+// Redis.fromEnv() lit automatiquement UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN
 const redis = (() => {
-  const url   = Deno.env.get("UPSTASH_REDIS_URL");
-  const token = Deno.env.get("UPSTASH_REDIS_TOKEN");
-  if (!url || !token) return null;
-  return new Redis({ url, token });
+  try { return Redis.fromEnv(); } catch { return null; }
 })();
 
 function clientIP(req: Request): string {
