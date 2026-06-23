@@ -17,6 +17,7 @@
 // =============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { Redis } from "https://esm.sh/@upstash/redis";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -27,16 +28,21 @@ const CORS = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 
-// ── Rate limiting (en mémoire, par IP, par isolate Deno) ─────────────────────
+// ── Rate limiting via Upstash Redis — partagé entre tous les isolates ─────────
 // Protège le quota Gemini : 429 renvoyé AVANT tout appel à l'API externe.
-// Limite : 15 requêtes / 60 s par adresse IP.
-// Note : la Map est réinitialisée au cold start de l'isolate — protection
-// suffisante contre le martelage depuis une IP fixe.
+// Limite : 15 requêtes / 60 s par adresse IP (fenêtre fixe).
+// Fail open : si Redis est indisponible, la requête passe (pas de blocage total).
+// Secrets requis : UPSTASH_REDIS_URL, UPSTASH_REDIS_TOKEN
 const RATE_LIMIT_RPM = 15;
-const RATE_WINDOW_MS = 60_000;
+const RATE_WINDOW_S  = 60;
+const RL_PREFIX      = "rl:em:"; // préfixe unique par fonction
 
-interface RateBucket { count: number; resetAt: number; }
-const rateMap = new Map<string, RateBucket>();
+const redis = (() => {
+  const url   = Deno.env.get("UPSTASH_REDIS_URL");
+  const token = Deno.env.get("UPSTASH_REDIS_TOKEN");
+  if (!url || !token) return null;
+  return new Redis({ url, token });
+})();
 
 function clientIP(req: Request): string {
   return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
@@ -44,18 +50,16 @@ function clientIP(req: Request): string {
       ?? "unknown";
 }
 
-function isRateLimited(ip: string): boolean {
-  const now = Date.now();
-  // Purge ponctuelle pour éviter la fuite mémoire si la map grossit
-  if (rateMap.size > 500) {
-    for (const [k, v] of rateMap) if (now >= v.resetAt) rateMap.delete(k);
+async function isRateLimited(ip: string): Promise<boolean> {
+  if (!redis) return false; // fail open si secrets non configurés
+  try {
+    const key   = RL_PREFIX + ip;
+    const count = await redis.incr(key);
+    if (count === 1) await redis.expire(key, RATE_WINDOW_S); // première req → pose le TTL
+    return count > RATE_LIMIT_RPM;
+  } catch {
+    return false; // fail open si Redis indisponible
   }
-  const b = rateMap.get(ip);
-  if (!b || now >= b.resetAt) {
-    rateMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
-    return false;
-  }
-  return ++b.count > RATE_LIMIT_RPM;
 }
 
 const tooMany = () =>
@@ -91,7 +95,7 @@ async function embed(text: string): Promise<number[]> {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
-  if (isRateLimited(clientIP(req))) return tooMany();
+  if (await isRateLimited(clientIP(req))) return tooMany();
   try {
     const { aspiration, eligibleIds } = await req.json();
     const txt = String(aspiration || "").trim();

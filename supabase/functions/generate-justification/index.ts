@@ -21,6 +21,8 @@
 // Secrets (supabase secrets set ...) : GEMINI_API_KEY
 // =============================================================================
 
+import { Redis } from "https://esm.sh/@upstash/redis";
+
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -33,14 +35,21 @@ const json = (body: unknown, status = 200) =>
     headers: { ...CORS, "Content-Type": "application/json" },
   });
 
-// ── Rate limiting (en mémoire, par IP, par isolate Deno) ─────────────────────
+// ── Rate limiting via Upstash Redis — partagé entre tous les isolates ─────────
 // Protège le quota Gemini : 429 renvoyé AVANT tout appel à l'API externe.
-// Limite : 15 requêtes / 60 s par adresse IP.
+// Limite : 15 requêtes / 60 s par adresse IP (fenêtre fixe).
+// Fail open : si Redis est indisponible, la requête passe (pas de blocage total).
+// Secrets requis : UPSTASH_REDIS_URL, UPSTASH_REDIS_TOKEN
 const RATE_LIMIT_RPM = 15;
-const RATE_WINDOW_MS = 60_000;
+const RATE_WINDOW_S  = 60;
+const RL_PREFIX      = "rl:gj:"; // préfixe unique par fonction
 
-interface RateBucket { count: number; resetAt: number; }
-const rateMap = new Map<string, RateBucket>();
+const redis = (() => {
+  const url   = Deno.env.get("UPSTASH_REDIS_URL");
+  const token = Deno.env.get("UPSTASH_REDIS_TOKEN");
+  if (!url || !token) return null;
+  return new Redis({ url, token });
+})();
 
 function clientIP(req: Request): string {
   return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
@@ -48,17 +57,16 @@ function clientIP(req: Request): string {
       ?? "unknown";
 }
 
-function isRateLimited(ip: string): boolean {
-  const now = Date.now();
-  if (rateMap.size > 500) {
-    for (const [k, v] of rateMap) if (now >= v.resetAt) rateMap.delete(k);
-  }
-  const b = rateMap.get(ip);
-  if (!b || now >= b.resetAt) {
-    rateMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
+async function isRateLimited(ip: string): Promise<boolean> {
+  if (!redis) return false;
+  try {
+    const key   = RL_PREFIX + ip;
+    const count = await redis.incr(key);
+    if (count === 1) await redis.expire(key, RATE_WINDOW_S);
+    return count > RATE_LIMIT_RPM;
+  } catch {
     return false;
   }
-  return ++b.count > RATE_LIMIT_RPM;
 }
 
 const tooMany = () =>
@@ -276,7 +284,7 @@ async function appelerGemini(prompt: string): Promise<string> {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
-  if (isRateLimited(clientIP(req))) return tooMany();
+  if (await isRateLimited(clientIP(req))) return tooMany();
 
   try {
     const body = await req.json();
