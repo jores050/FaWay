@@ -28,7 +28,7 @@ export function render(mount) {
         { class: "card stack" },
         el("h1", {}, "Comment ça fonctionne ?"),
         p(
-          "Cette page explique honnêtement comment IAOrientation calcule ses recommandations, ",
+          "Cette page explique honnêtement comment FaWay calcule ses recommandations, ",
           "quelles sont ses sources, et où s'arrêtent ses certitudes. ",
           "Lire cette page avant de prendre une décision importante, c'est la bonne approche."
         )
@@ -56,7 +56,7 @@ export function render(mount) {
         "📐 Moyenne de classement officielle",
         p(
           "Pour savoir si tu es éligible à une filière, on compare ta série de bac aux critères officiels. ",
-          "Pour les filières admettant sur dossier (mode Classement), IAOrientation calcule ta ",
+          "Pour les filières admettant sur dossier (mode Classement), FaWay calcule ta ",
           fort("vraie moyenne de classement"),
           " selon la formule confirmée page 8 du guide d'orientation du Ministère :"
         ),
@@ -169,7 +169,7 @@ export function render(mount) {
       section(
         "🎯 Chances d'admission estimées",
         p(
-          "En plus du score de compatibilité, IAOrientation affiche une ",
+          "En plus du score de compatibilité, FaWay affiche une ",
           fort("estimation des chances d'admission"),
           " pour les filières admettant au classement (lorsque tu as saisi tes notes). Ces deux indicateurs mesurent des choses différentes :"
         ),

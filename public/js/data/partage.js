@@ -77,7 +77,7 @@ export async function genererImagePartage(topResultats, serie) {
   ctx.textAlign = "center";
   ctx.font = "bold 84px system-ui,-apple-system,sans-serif";
   ctx.fillStyle = C.blanc;
-  ctx.fillText("IAOrientation", W / 2, 120);
+  ctx.fillText("FaWay", W / 2, 120);
 
   ctx.font = "40px system-ui,-apple-system,sans-serif";
   ctx.fillStyle = "rgba(255,255,255,0.72)";
@@ -192,7 +192,7 @@ export async function partagerResultats(blob) {
         await navigator.share({
           files: [file],
           title: "Mon top filières",
-          text: "Découvre mes filières recommandées sur IAOrientation !",
+          text: "Découvre mes filières recommandées sur FaWay !",
         });
         return;
       } catch (e) {
