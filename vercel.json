@@ -2,5 +2,8 @@
   "outputDirectory": "public",
   "buildCommand": null,
   "installCommand": null,
-  "framework": null
+  "framework": null,
+  "routes": [
+    { "src": "/app", "dest": "/app.html" }
+  ]
 }
