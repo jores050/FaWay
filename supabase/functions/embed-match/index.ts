@@ -13,7 +13,7 @@
 //     son tri existant, jamais d'écran d'erreur.
 //
 // Secrets (supabase secrets set ...) : GEMINI_API_KEY
-//   SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY sont injectés automatiquement.
+//   SUPABASE_URL et SUPABASE_ANON_KEY sont injectés automatiquement.
 // =============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
     );
     // pgvector attend "[v1,v2,…]" en entrée texte.
     const { data, error } = await supabase.rpc("match_filieres", {
