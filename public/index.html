@@ -485,7 +485,7 @@ section { scroll-margin-top: 62px; }
 
       <p class="hero__sub">
         Découvre les filières universitaires qui correspondent à ta série,
-        tes notes et ton aspiration — calculé selon la formule officielle
+        tes notes et ton aspiration — basé sur les données officielles
         du Ministère de l'Enseignement Supérieur.
       </p>
 
@@ -568,23 +568,32 @@ section { scroll-margin-top: 62px; }
         <div class="m-num m-num--3" aria-hidden="true">3</div>
         <h3>Proposition FaWay</h3>
         <p>
-          Un score composite qui équilibre : adéquation académique (47 %),
-          affinité aspiration (33 %) et avenir des métiers (20 %). Conçu pour
-          éviter les recommandations uniquement basées sur les notes.
+          Un score composite sur deux critères : affinité aspiration (56 %)
+          et adéquation académique (44 %). L'avenir des métiers reste affiché
+          comme information contextuelle, sans entrer dans le score.
         </p>
       </div>
     </div>
 
     <div class="m-formula">
-      <h3>La formule du Ministère — reproduite fidèlement</h3>
+      <h3>Formule officielle du Ministère — appliquée par FaWay</h3>
+      <div class="m-formula__eq">M = (note₁×coef₁ + note₂×coef₂ + …) ÷ (coef₁ + coef₂ + …)</div>
+      <p class="m-formula__note">
+        C'est la <strong>vraie formule de classement</strong> du Ministère de l'Enseignement
+        Supérieur (arrêté interministériel N°016-2003). FaWay l'applique automatiquement avec
+        les coefficients officiels de ta série pour calculer ta moyenne de classement sur les
+        matières de sélection de chaque filière.
+      </p>
+
+      <h3 style="margin-top:1.25rem">Estimation des chances — méthode indicative FaWay</h3>
       <div class="m-formula__eq">Chances (%) = 50 + (ta_moyenne − seuil_filière) × 12
 → résultat limité entre 5 % et 95 %</div>
       <p class="m-formula__note">
-        Cette formule reproduit la logique du classement officiel du Ministère de
-        l'Enseignement Supérieur du Bénin. Le seuil de chaque filière est estimé à partir
-        du niveau de demande historique (très demandée → 14/20, demandée → 12/20, etc.).
-        <strong>Ce chiffre est indicatif</strong> : le seuil réel varie chaque année selon
-        le nombre de candidats et de places disponibles. FaWay ne garantit aucun résultat.
+        Ce calcul est une <strong>estimation maison</strong>, pas une formule officielle.
+        Le seuil de chaque filière est estimé d'après le niveau de demande historique
+        (très demandée → 14/20, demandée → 12/20, etc.). <strong>Ce chiffre est indicatif</strong> :
+        le seuil réel varie chaque année selon le nombre de candidats et de places.
+        FaWay ne garantit aucun résultat.
       </p>
     </div>
   </div>
@@ -611,7 +620,7 @@ section { scroll-margin-top: 62px; }
             <p class="factoid__text">
               <strong>Toutes les universités publiques couvertes :</strong>
               UAC (Abomey-Calavi), UNA, Université de Parakou, UNSTIM — plus de
-              119 filières avec leurs critères réels d'accès.
+              207 filières avec leurs critères réels d'accès.
             </p>
           </div>
           <div class="factoid">
