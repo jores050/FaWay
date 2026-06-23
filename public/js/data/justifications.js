@@ -10,6 +10,16 @@
 // =============================================================================
 
 import { supabase, configValide } from "../lib/supabaseClient.js";
+import { toastRateLimit } from "../ui.js";
+
+/** Retourne true si la réponse supabase-js correspond à un 429. */
+function estRateLimite(error, data) {
+  if (error && error !== "timeout") {
+    if (error?.context?.status === 429 || error?.status === 429) return true;
+  }
+  if (data?.error === "rate_limited") return true;
+  return false;
+}
 
 const EDGE_FN = "smart-worker"; // slug URL de la fonction generate-justification
 const MAX_FILIERES = 5;
@@ -35,6 +45,7 @@ export async function extraireAspiration(aspiration) {
       setTimeout(() => res({ data: null, error: "timeout" }), 5000)
     );
     const { data, error } = await Promise.race([appel, delai]);
+    if (estRateLimite(error, data)) { toastRateLimit(); return { veut: [], rejette: [] }; }
     if (error || !data) return { veut: [], rejette: [] };
     return {
       veut: Array.isArray(data.veut) ? data.veut.filter((v) => typeof v === "string") : [],
@@ -110,6 +121,7 @@ export async function genererJustifications(topResultats, etat, donnees, rejette
 
     const { data, error } = await Promise.race([appel, delai]);
 
+    if (estRateLimite(error, data)) { toastRateLimit(); return new Map(); }
     if (error || !data || !Array.isArray(data.justifications)) return new Map();
 
     return new Map(

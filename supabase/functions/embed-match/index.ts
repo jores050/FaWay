@@ -27,6 +27,43 @@ const CORS = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 
+// ── Rate limiting (en mémoire, par IP, par isolate Deno) ─────────────────────
+// Protège le quota Gemini : 429 renvoyé AVANT tout appel à l'API externe.
+// Limite : 15 requêtes / 60 s par adresse IP.
+// Note : la Map est réinitialisée au cold start de l'isolate — protection
+// suffisante contre le martelage depuis une IP fixe.
+const RATE_LIMIT_RPM = 15;
+const RATE_WINDOW_MS = 60_000;
+
+interface RateBucket { count: number; resetAt: number; }
+const rateMap = new Map<string, RateBucket>();
+
+function clientIP(req: Request): string {
+  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+      ?? req.headers.get("x-real-ip")
+      ?? "unknown";
+}
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  // Purge ponctuelle pour éviter la fuite mémoire si la map grossit
+  if (rateMap.size > 500) {
+    for (const [k, v] of rateMap) if (now >= v.resetAt) rateMap.delete(k);
+  }
+  const b = rateMap.get(ip);
+  if (!b || now >= b.resetAt) {
+    rateMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return false;
+  }
+  return ++b.count > RATE_LIMIT_RPM;
+}
+
+const tooMany = () =>
+  new Response(JSON.stringify({ error: "rate_limited" }), {
+    status: 429,
+    headers: { ...CORS, "Content-Type": "application/json", "Retry-After": "60" },
+  });
+
 // Doit être IDENTIQUE au modèle/dim utilisés à la génération (sinon vecteurs incomparables).
 const MODELE = "gemini-embedding-001";
 const DIMS = 768;
@@ -54,6 +91,7 @@ async function embed(text: string): Promise<number[]> {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  if (isRateLimited(clientIP(req))) return tooMany();
   try {
     const { aspiration, eligibleIds } = await req.json();
     const txt = String(aspiration || "").trim();

@@ -12,8 +12,19 @@
 // =============================================================================
 
 import { supabase, configValide } from "../lib/supabaseClient.js";
+import { toastRateLimit } from "../ui.js";
 
 const TIMEOUT_MS = 4000;
+
+/** Retourne true si la réponse supabase-js correspond à un 429. */
+function estRateLimite(error, data) {
+  if (error && error !== "timeout") {
+    if (error?.context?.status === 429 || error?.status === 429) return true;
+  }
+  // Corps renvoyé par notre fonction avant que supabase-js parse le statut
+  if (data?.error === "rate_limited") return true;
+  return false;
+}
 
 export async function classerParSemantique(aspiration, eligibleIds) {
   const txt = (aspiration || "").trim();
@@ -25,6 +36,7 @@ export async function classerParSemantique(aspiration, eligibleIds) {
     });
     const timeout = new Promise((res) => setTimeout(() => res({ data: null, error: "timeout" }), TIMEOUT_MS));
     const { data, error } = await Promise.race([appel, timeout]);
+    if (estRateLimite(error, data)) { toastRateLimit(); return []; }
     if (error || !data || !Array.isArray(data.ranking)) return [];
     return data.ranking;
   } catch (e) {

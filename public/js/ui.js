@@ -193,3 +193,36 @@ export function ico(name, size = 20) {
   node.innerHTML = paths;
   return node;
 }
+
+/**
+ * Affiche un toast discret "Trop de requêtes" quand l'app reçoit un 429.
+ * Auto-disparaît après 5 secondes. Idempotent : un seul toast à la fois.
+ */
+export function toastRateLimit() {
+  if (document.getElementById("rl-toast")) return;
+  const toast = document.createElement("div");
+  toast.id = "rl-toast";
+  toast.textContent = "Trop de requêtes — patiente un instant ⌛";
+  Object.assign(toast.style, {
+    position: "fixed",
+    bottom: "1.25rem",
+    left: "50%",
+    transform: "translateX(-50%)",
+    background: "#1e293b",
+    color: "#f1f5f9",
+    padding: ".6rem 1.4rem",
+    borderRadius: ".5rem",
+    fontSize: ".85rem",
+    zIndex: "9999",
+    boxShadow: "0 2px 10px rgba(0,0,0,.3)",
+    pointerEvents: "none",
+    opacity: "0",
+    transition: "opacity .25s",
+  });
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => { toast.style.opacity = "1"; });
+  setTimeout(() => {
+    toast.style.opacity = "0";
+    setTimeout(() => toast.remove(), 280);
+  }, 5000);
+}
