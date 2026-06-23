@@ -78,6 +78,8 @@ Deno.serve(async (req) => {
     return json({ ranking: data ?? [] });
   } catch (e) {
     // Fallback silencieux : le frontend conserve son tri existant.
-    return json({ ranking: [], error: String((e as Error)?.message ?? e) });
+    // Le message d'erreur n'est jamais renvoyé au client (quota, état clé API).
+    console.error("[embed-match]", String((e as Error)?.message ?? e));
+    return json({ ranking: [] });
   }
 });
